@@ -7,21 +7,21 @@ fn bin() -> Command {
 }
 
 #[test]
-fn prints_greeting_for_argument() {
-    let out = bin().arg("Ada").output().unwrap();
-    assert!(out.status.success());
-    assert_eq!(String::from_utf8_lossy(&out.stdout), "Hello, Ada!\n");
+fn runs_and_exits_successfully_with_no_arguments() {
+    let out = bin().env_remove("RUST_LOG").output().unwrap();
+    assert!(out.status.success(), "exit status was {}", out.status);
+    assert!(
+        out.stdout.is_empty(),
+        "no commands exist yet, so nothing is printed"
+    );
 }
 
 #[test]
-fn defaults_to_world() {
-    let out = bin().output().unwrap();
-    assert!(out.status.success());
-    assert_eq!(String::from_utf8_lossy(&out.stdout), "Hello, world!\n");
-}
-
-#[test]
-fn blank_argument_fails() {
-    let out = bin().arg(" ").output().unwrap();
-    assert!(!out.status.success());
+fn stays_quiet_at_the_default_log_level() {
+    let out = bin().env_remove("RUST_LOG").output().unwrap();
+    assert!(
+        out.stderr.is_empty(),
+        "stderr was: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
 }

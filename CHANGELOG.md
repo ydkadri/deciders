@@ -4,6 +4,17 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.0.2] - 2026-10-01
+
+### Added
+- ADR model: `Status` with the lifecycle rules, `AdrNumber`, `Date`, and a strict reader and writer for the bold-line header and the ADR document. Writing refuses anything that would not read back unchanged, and writes the title and header with the file's first line ending (ADR 0001, ADR 0002)
+
+### Changed
+- The binary's default log level is now `info`, matching `.env.example`
+
+### Removed
+- The template's placeholder `greet` function and its tests
+
 ## [0.0.1] - 2026-10-01
 
 ### Added
