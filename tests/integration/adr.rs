@@ -1,10 +1,10 @@
 //! Integration tests for the public library API: reading and writing an ADR
 //! and walking it through the lifecycle.
 
-use decider_adr::adr::Adr;
-use decider_adr::header::{Stage, StageError};
-use decider_adr::number::AdrNumber;
-use decider_adr::status::Status;
+use decider_adr::domain::adr::Adr;
+use decider_adr::domain::header::{Stage, StageError};
+use decider_adr::domain::number::AdrNumber;
+use decider_adr::domain::status::Status;
 
 const ADR: &str = "\
 # 0004. Serialise with the C dumper

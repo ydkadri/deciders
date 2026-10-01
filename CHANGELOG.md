@@ -4,6 +4,16 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.0.3] - 2026-10-02
+
+### Added
+- `decider init [--dir PATH] [--user NAME]` sets up a repository and your own settings in one step, and is safe to run again. It writes `.decider.toml`, the ADR directory and the template, and records your name in a per-user file that is never committed. With a terminal it asks for the name, suggesting one from `$USER`. Without one it records nothing and warns, so CI never hangs (ADR 0003)
+- `decider propose TITLE` creates a proposed ADR numbered after the highest existing one, with the sections from the repository's template, your name and today's local date (ADR 0001, ADR 0002)
+- Command reference and getting-started tutorial
+
+### Changed
+- The code is in a hexagonal structure: `domain`, `ports`, `app` and `adapters` modules in one crate (ADR 0004)
+
 ## [0.0.2] - 2026-10-01
 
 ### Added

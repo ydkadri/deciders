@@ -6,9 +6,9 @@
 
 use std::fmt;
 
-use crate::date::{Date, DateError};
-use crate::number::{AdrNumber, NumberError};
-use crate::status::Status;
+use crate::domain::date::{Date, DateError};
+use crate::domain::number::{AdrNumber, NumberError};
+use crate::domain::status::Status;
 
 /// What is wrong with an author name or a reference.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -119,7 +119,7 @@ const SUPERSEDED_BY: &str = "Superseded by";
 const SUPERSEDES: &str = "Supersedes";
 
 /// Check that `text` survives being written on a header line and read back.
-fn check_value(text: &str, is_reference: bool) -> Result<(), ValueProblem> {
+pub(crate) fn check_value(text: &str, is_reference: bool) -> Result<(), ValueProblem> {
     if text.trim().is_empty() {
         Err(ValueProblem::Empty)
     } else if text.contains(['\n', '\r']) {
@@ -313,6 +313,21 @@ pub struct Header {
 }
 
 impl Header {
+    /// An empty header: the given status, no stage lines and no other lines.
+    pub fn new(status: Status) -> Self {
+        Self {
+            status,
+            proposed: None,
+            accepted: None,
+            rejected: None,
+            implemented: None,
+            superseded: None,
+            superseded_by: None,
+            supersedes: Vec::new(),
+            other: Vec::new(),
+        }
+    }
+
     /// Read the header from its numbered lines.
     ///
     /// Blank lines are skipped. Every other line must be `**Label:** value`.
@@ -325,17 +340,7 @@ impl Header {
         lines: impl IntoIterator<Item = (usize, &'a str)>,
     ) -> Result<Self, HeaderError> {
         let mut status = None;
-        let mut header = Self {
-            status: Status::Proposed,
-            proposed: None,
-            accepted: None,
-            rejected: None,
-            implemented: None,
-            superseded: None,
-            superseded_by: None,
-            supersedes: Vec::new(),
-            other: Vec::new(),
-        };
+        let mut header = Self::new(Status::Proposed);
 
         for (line, text) in lines {
             if text.trim().is_empty() {
@@ -439,6 +444,15 @@ mod tests {
 
     fn stage(text: &str) -> Result<Stage, StageError> {
         Stage::parse(text, true)
+    }
+
+    #[test]
+    fn a_new_header_writes_only_its_status() {
+        assert_eq!(
+            Header::new(Status::Accepted).to_string(),
+            "**Status:** accepted",
+            "no stage lines"
+        );
     }
 
     #[test]

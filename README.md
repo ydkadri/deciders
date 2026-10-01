@@ -12,7 +12,12 @@ cargo install --path .
 
 ## Usage
 
-No commands exist yet.
+```bash
+decider init                       # once per clone, at the repository root
+decider propose "Use Postgres"     # creates a proposed ADR
+```
+
+Only `init` and `propose` exist so far. See the [tutorial](docs/tutorials/getting-started.md) and the [command reference](docs/reference/commands.md).
 
 ## Development
 

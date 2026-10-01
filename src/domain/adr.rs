@@ -1,7 +1,7 @@
 //! One ADR document: title, header and body.
 
-use crate::header::{Header, HeaderError};
-use crate::number::AdrNumber;
+use crate::domain::header::{Header, HeaderError};
+use crate::domain::number::AdrNumber;
 
 /// The line ending a file uses, which is kept when it is written back.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -70,6 +70,15 @@ fn parse_title(line: &str) -> Option<(AdrNumber, String)> {
 }
 
 impl LineEnding {
+    /// The line ending of the first line of `text`: `CrLf` if it ends with
+    /// `\r\n`, otherwise `Lf`.
+    pub fn of_first_line(text: &str) -> Self {
+        match text.split_inclusive('\n').next() {
+            Some(first) if first.ends_with("\r\n") => Self::CrLf,
+            _ => Self::Lf,
+        }
+    }
+
     fn as_str(self) -> &'static str {
         match self {
             Self::Lf => "\n",
@@ -103,8 +112,8 @@ impl Adr {
     /// # Examples
     ///
     /// ```
-    /// use decider_adr::adr::Adr;
-    /// use decider_adr::status::Status;
+    /// use decider_adr::domain::adr::Adr;
+    /// use decider_adr::domain::status::Status;
     ///
     /// let text = "# 0001. Use Postgres\n\n**Status:** proposed\n\n## Context\n";
     /// let adr = Adr::parse(text)?;
@@ -119,11 +128,7 @@ impl Adr {
         let first = first_raw.trim_end();
         let (number, title) =
             parse_title(first).ok_or_else(|| AdrError::InvalidTitle(first.to_owned()))?;
-        let line_ending = if first_raw.ends_with("\r\n") {
-            LineEnding::CrLf
-        } else {
-            LineEnding::Lf
-        };
+        let line_ending = LineEnding::of_first_line(text);
 
         let mut offset = first_raw.len();
         let mut header_lines = Vec::new();
@@ -166,7 +171,7 @@ impl Adr {
     /// # Examples
     ///
     /// ```
-    /// use decider_adr::adr::Adr;
+    /// use decider_adr::domain::adr::Adr;
     ///
     /// let mut adr = Adr::parse("# 0001. Use Postgres\n\n**Status:** proposed\n")?;
     /// adr.title = "Use\nPostgres".to_owned();
@@ -186,8 +191,8 @@ impl Adr {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::header::Stage;
-    use crate::status::Status;
+    use crate::domain::header::Stage;
+    use crate::domain::status::Status;
 
     const SAMPLE: &str = "\
 # 0007. Use Postgres

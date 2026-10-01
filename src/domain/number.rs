@@ -40,6 +40,15 @@ impl AdrNumber {
         digits.parse().ok().map(Self)
     }
 
+    /// The number for the next ADR: one more than the highest in `existing`.
+    ///
+    /// The template counts as number 0, so with nothing else the answer is 1.
+    /// Returns `None` if the highest number is already the largest that fits.
+    pub fn next_free(existing: impl IntoIterator<Item = Self>) -> Option<Self> {
+        let highest = existing.into_iter().map(Self::get).max().unwrap_or(0);
+        highest.checked_add(1).map(Self)
+    }
+
     /// Wrap a plain number.
     pub fn new(value: u32) -> Self {
         Self(value)
@@ -174,6 +183,39 @@ mod tests {
         assert!(template.is_template(), "0000 is reserved for the template");
         assert!(!AdrNumber::new(1).is_template(), "0001 is a real ADR");
         assert_eq!(template.get(), 0, "the template is number zero");
+    }
+
+    #[test]
+    fn the_first_adr_is_number_one() {
+        assert_eq!(
+            AdrNumber::next_free([]),
+            Some(AdrNumber::new(1)),
+            "nothing yet"
+        );
+        assert_eq!(
+            AdrNumber::next_free([AdrNumber::TEMPLATE]),
+            Some(AdrNumber::new(1)),
+            "only the template"
+        );
+    }
+
+    #[test]
+    fn the_next_number_follows_the_highest_even_with_gaps() {
+        let existing = [3, 1, 7].map(AdrNumber::new);
+        assert_eq!(
+            AdrNumber::next_free(existing),
+            Some(AdrNumber::new(8)),
+            "gaps are kept"
+        );
+    }
+
+    #[test]
+    fn there_is_no_next_number_after_the_largest() {
+        assert_eq!(
+            AdrNumber::next_free([AdrNumber::new(u32::MAX)]),
+            None,
+            "would overflow"
+        );
     }
 
     #[test]

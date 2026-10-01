@@ -1,6 +1,6 @@
 [package]
 name = "decider-adr"
-version = "0.0.2"
+version = "0.0.3"
 edition = "2024"
 description = "Manage architecture decision records through their lifecycle, with a check for CI."
 publish = false
@@ -15,9 +15,16 @@ path = "src/main.rs"
 
 [dependencies]
 anyhow = "1"
+chrono = { version = "0.4", default-features = false, features = ["clock"] }
+clap = { version = "4", features = ["derive"] }
+serde = { version = "1", features = ["derive"] }
 thiserror = "2"
+toml = "1"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+[dev-dependencies]
+tempfile = "3"
 
 [lints]
 workspace = true

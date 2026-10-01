@@ -1,13 +1,12 @@
-//! Library core for `decider-adr`.
+//! Library for `decider-adr`, in a hexagonal structure (ADR 0004).
 //!
-//! This crate is the pure core (ADR 0004): the ADR model, its lifecycle rules,
-//! and reading and writing an ADR's text. It does no I/O. The binary in
-//! `main.rs` stays a thin wrapper that handles process concerns only.
+//! `domain` is the pure model and its rules. `ports` are the traits the use
+//! cases need. `app` holds the use cases, and `adapters` implements the ports.
+//! The binary in `main.rs` is the command line and the composition root.
 
 #![warn(missing_docs)]
 
-pub mod adr;
-pub mod date;
-pub mod header;
-pub mod number;
-pub mod status;
+pub mod adapters;
+pub mod app;
+pub mod domain;
+pub mod ports;
