@@ -1,0 +1,6 @@
+# Cargo.lock is committed on purpose (reproducible builds, `--locked` in CI).
+target/
+.env
+*.profraw
+lcov.info
+.claude/review-log.md
