@@ -4,6 +4,13 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.0.2] - 2026-10-05
+
+### Added
+- `decider init [--dir PATH] [--user NAME] [--force]` sets up a repository and your own settings, and is safe to run again. At a terminal it asks for the directory and your name, showing a default for each. `--force` replaces settings that already exist: on its own it asks for both again, and `--dir` or `--user` replaces only that one. It writes `.decider.toml`, the ADR directory and the ADR template, and records your name in a per-user file that is never committed (ADR 0002)
+- The store port and the file adapter that implements it (ADR 0003)
+- Command reference and getting-started tutorial
+
 ## [0.0.1] - 2026-10-05
 
 ### Added
