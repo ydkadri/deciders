@@ -1,4 +1,5 @@
-//! The user's own settings (ADR 0002): a name, kept outside the repository.
+//! The user's own settings (ADR 0002): a name and an editor, kept outside the
+//! repository.
 //!
 //! Nothing but the tool would supply these, so this is a plain module and not a
 //! port.
@@ -19,10 +20,11 @@ const FILE_NAME: &str = "config.toml";
 const DIR_NAME: &str = "decider";
 
 /// The contents of the settings file.
-#[derive(Deserialize)]
+#[derive(Default, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct Raw {
     name: Option<String>,
+    editor: Option<String>,
 }
 
 /// Where the settings file is, given the environment: under `xdg_config_home`
@@ -98,15 +100,67 @@ pub fn name_from_answer(answer: &str, suggestion: Option<&str>) -> Result<Option
 ///
 /// Returns [`Error`] if the file cannot be read or is not valid settings.
 pub fn read_name(path: &Path) -> Result<Option<String>, Error> {
+    // A blank name counts as no name, so `--user` can still set one.
+    Ok(read(path)?.name.filter(|name| !name.trim().is_empty()))
+}
+
+/// The `editor` setting in the settings file at `path`, as written, or `None`
+/// if the file or the key is missing.
+///
+/// # Errors
+///
+/// Returns [`Error`] if the file cannot be read or is not valid settings.
+pub fn read_editor(path: &Path) -> Result<Option<String>, Error> {
+    Ok(read(path)?.editor)
+}
+
+/// The command that opens a new ADR for editing, as a program and its
+/// arguments: the `editor` setting if there is one, otherwise the `EDITOR`
+/// environment variable. A value is split on whitespace, so `code --wait` works,
+/// and a blank one counts as not set. `None` if neither names an editor.
+pub fn editor_command(setting: Option<&str>, environment: Option<&str>) -> Option<Vec<String>> {
+    [setting, environment]
+        .into_iter()
+        .flatten()
+        .map(|text| {
+            text.split_whitespace()
+                .map(str::to_owned)
+                .collect::<Vec<_>>()
+        })
+        .find(|words| !words.is_empty())
+}
+
+/// Run `command` (a program and its arguments, from [`editor_command`]) with
+/// `path` added as the last argument, on the terminal the tool was started from,
+/// and wait for it to finish.
+///
+/// # Errors
+///
+/// Returns [`Error`] if the editor cannot be started or exits with a failure.
+pub fn open_in_editor(command: &[String], path: &Path) -> Result<(), Error> {
+    let Some((program, arguments)) = command.split_first() else {
+        return Ok(());
+    };
+    let status = std::process::Command::new(program)
+        .args(arguments)
+        .arg(path)
+        .status()
+        .map_err(|cause| Error::io("start the editor", Path::new(program), cause))?;
+    if status.success() {
+        Ok(())
+    } else {
+        Err(Error::EditorFailed(program.clone(), status.to_string()))
+    }
+}
+
+/// The settings in the file at `path`; none if there is no file.
+fn read(path: &Path) -> Result<Raw, Error> {
     let text = match fs::read_to_string(path) {
         Ok(text) => text,
-        Err(cause) if cause.kind() == io::ErrorKind::NotFound => return Ok(None),
+        Err(cause) if cause.kind() == io::ErrorKind::NotFound => return Ok(Raw::default()),
         Err(cause) => return Err(Error::io("read", path, cause)),
     };
-    let raw: Raw =
-        toml::from_str(&text).map_err(|cause| Error::settings(path, cause.to_string()))?;
-    // A blank name counts as no name, so `--user` can still set one.
-    Ok(raw.name.filter(|name| !name.trim().is_empty()))
+    toml::from_str(&text).map_err(|cause| Error::settings(path, cause.to_string()))
 }
 
 /// Whether `line` sets the `name` key, such as `name = ""`.
@@ -380,6 +434,100 @@ mod tests {
             "name = \"Ada\"\n# my settings\n",
             "comment kept after the name"
         );
+    }
+
+    #[test]
+    fn the_editor_is_read_from_the_file_and_a_missing_one_is_none() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("config.toml");
+        assert_eq!(read_editor(&path).unwrap(), None, "no file");
+        fs::write(&path, "name = \"Ada\"\neditor = \"code --wait\"\n").unwrap();
+        assert_eq!(
+            read_editor(&path).unwrap().as_deref(),
+            Some("code --wait"),
+            "as written"
+        );
+        assert_eq!(
+            read_name(&path).unwrap().as_deref(),
+            Some("Ada"),
+            "name too"
+        );
+        fs::write(&path, "name = \"Ada\"\n").unwrap();
+        assert_eq!(read_editor(&path).unwrap(), None, "no key");
+    }
+
+    #[test]
+    fn recording_a_name_keeps_the_editor_setting() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("config.toml");
+        fs::write(&path, "editor = \"vim\"\n").unwrap();
+        write_name(&path, "Ada").unwrap();
+        assert_eq!(
+            read_editor(&path).unwrap().as_deref(),
+            Some("vim"),
+            "editor"
+        );
+        assert_eq!(read_name(&path).unwrap().as_deref(), Some("Ada"), "name");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn the_editor_is_run_with_the_file_as_its_last_argument() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("adr.md");
+        fs::write(&path, "before\n").unwrap();
+        let command = ["sh", "-c", "echo edited >> \"$1\"", "sh"].map(str::to_owned);
+        open_in_editor(&command, &path).unwrap();
+        assert_eq!(
+            fs::read_to_string(&path).unwrap(),
+            "before\nedited\n",
+            "ran"
+        );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn an_editor_that_fails_or_is_missing_is_an_error() {
+        let path = Path::new("adr.md");
+        let failing = ["false"].map(str::to_owned);
+        assert!(
+            matches!(open_in_editor(&failing, path), Err(Error::EditorFailed(..))),
+            "exit status"
+        );
+        let missing = ["no-such-editor-anywhere"].map(str::to_owned);
+        assert!(
+            matches!(open_in_editor(&missing, path), Err(Error::Io { .. })),
+            "not found"
+        );
+    }
+
+    #[test]
+    fn the_setting_wins_over_the_environment() {
+        assert_eq!(
+            editor_command(Some("code --wait"), Some("vim")),
+            Some(vec!["code".to_owned(), "--wait".to_owned()]),
+            "setting, split into program and argument"
+        );
+    }
+
+    #[test]
+    fn the_environment_is_the_default_when_there_is_no_setting() {
+        assert_eq!(
+            editor_command(None, Some("vim")),
+            Some(vec!["vim".to_owned()]),
+            "environment"
+        );
+    }
+
+    #[test]
+    fn a_blank_setting_or_variable_counts_as_not_set() {
+        assert_eq!(
+            editor_command(Some("  "), Some("vim")),
+            Some(vec!["vim".to_owned()]),
+            "blank setting falls through"
+        );
+        assert_eq!(editor_command(Some(" "), Some("")), None, "both blank");
+        assert_eq!(editor_command(None, None), None, "neither");
     }
 
     #[test]
