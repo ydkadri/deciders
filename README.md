@@ -13,10 +13,11 @@ cargo install --path .
 ## Usage
 
 ```bash
+decider init                 # once per clone, at the repository root
 decider --version
 ```
 
-No other commands exist yet.
+Only `init` exists so far. See the [tutorial](docs/tutorials/getting-started.md) and the [command reference](docs/reference/commands.md).
 
 ## Development
 
