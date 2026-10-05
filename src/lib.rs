@@ -1,0 +1,1 @@
+//! Library for `decider-adr`.

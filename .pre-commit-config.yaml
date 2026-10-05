@@ -1,0 +1,19 @@
+repos:
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.21.2
+    hooks:
+      - id: gitleaks
+  - repo: local
+    hooks:
+      - id: pre-commit
+        name: just git-pre-commit
+        entry: just git-pre-commit
+        language: system
+        pass_filenames: false
+        stages: [pre-commit]
+      - id: pre-push
+        name: just git-pre-push
+        entry: just git-pre-push
+        language: system
+        pass_filenames: false
+        stages: [pre-push]

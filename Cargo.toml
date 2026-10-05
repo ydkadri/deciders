@@ -1,0 +1,47 @@
+[package]
+name = "decider-adr"
+version = "0.0.1"
+edition = "2024"
+description = "Manage architecture decision records through their lifecycle."
+publish = false
+
+[[bin]]
+name = "decider"
+path = "src/main.rs"
+
+# This package is its own (single-member) workspace so that `--workspace`
+# flags and `[workspace.lints]` behave the same as in the workspace template.
+[workspace]
+
+[dependencies]
+clap = { version = "4", features = ["derive"] }
+
+[lints]
+workspace = true
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+unused_must_use = "deny"
+unreachable_pub = "warn"
+
+[workspace.lints.rustdoc]
+broken_intra_doc_links = "deny"
+
+[workspace.lints.clippy]
+all = { level = "warn", priority = -1 }
+pedantic = { level = "warn", priority = -1 }
+unwrap_used = "deny"
+expect_used = "deny"
+panic = "deny"
+todo = "deny"
+unimplemented = "deny"
+dbg_macro = "deny"
+print_stdout = "deny"
+print_stderr = "deny"
+undocumented_unsafe_blocks = "deny"
+mod_module_files = "deny"
+wildcard_imports = "deny"
+enum_glob_use = "deny"
+allow_attributes_without_reason = "deny"
+module_name_repetitions = "allow"
+must_use_candidate = "allow"
