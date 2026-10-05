@@ -4,6 +4,14 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.0.3] - 2026-10-05
+
+### Added
+- The lifecycle: `decider propose TITLE`, `accept N`, `reject N --reason TEXT` and `implement N [--pr REF]... [--note TEXT]`. Each change of state adds a dated line with your name to the ADR's header, and a move the lifecycle does not allow is refused (ADR 0004)
+- Commands edit only the lines they own: the status, one new header line and one appended section. Nothing else in the file is touched (ADR 0005)
+- `propose` opens the new ADR in your editor when run at a terminal: the `editor` setting in your own `config.toml`, or `$EDITOR`. Nothing opens without a terminal or an editor, so scripts and CI never wait (ADR 0002, ADR 0004)
+- `chrono` for the local date, with only its clock feature
+
 ## [0.0.2] - 2026-10-05
 
 ### Added

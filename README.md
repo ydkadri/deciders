@@ -14,10 +14,14 @@ cargo install --path .
 
 ```bash
 decider init                 # once per clone, at the repository root
-decider --version
+decider propose "Use Postgres"
+decider accept 1
+decider implement 1 --pr '#12'
+decider propose "Use Redis"
+decider reject 2 --reason "Too costly"
 ```
 
-Only `init` exists so far. See the [tutorial](docs/tutorials/getting-started.md) and the [command reference](docs/reference/commands.md).
+The lifecycle is `proposed`, then `accepted` and `implemented`, or `rejected`. See the [tutorial](docs/tutorials/getting-started.md) and the [command reference](docs/reference/commands.md).
 
 ## Development
 
