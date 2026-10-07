@@ -48,6 +48,62 @@ To start again, replace what is set. `init --force` asks for both again, `--user
 decider init --user "Grace Hopper" --force
 ```
 
+## Propose a decision
+
+```bash
+decider propose "Use Postgres for the job queue"
+```
+
+```
+created docs/explanations/decisions/0001-use-postgres-for-the-job-queue.md
+```
+
+If you have an editor set (`$EDITOR`, or `editor = "code --wait"` in `~/.config/decider/config.toml`), `propose` opens the new file in it when run at a terminal, and the command finishes when you close the editor. The header records that it is proposed, when, and by whom:
+
+```markdown
+# 0001. Use Postgres for the job queue
+
+**Status:** proposed
+**Proposed:** 2026-10-05 by Ada Lovelace
+```
+
+Below it are the sections from the template: Context, Decision, Options considered and Consequences. Fill them in and commit the file.
+
+## Move it through its life
+
+When the decision is agreed:
+
+```bash
+decider accept 1
+```
+
+```
+docs/explanations/decisions/0001-use-postgres-for-the-job-queue.md is now accepted
+```
+
+When it has been built, say which pull requests did it, and add a note if there is something worth recording:
+
+```bash
+decider implement 1 --pr '#12' --pr '#13' --note "Shipped in two PRs."
+```
+
+The header now shows each step with its date and who did it:
+
+```markdown
+**Status:** implemented
+**Proposed:** 2026-10-05 by Ada Lovelace
+**Accepted:** 2026-10-05 by Ada Lovelace
+**Implemented:** 2026-10-05 by Ada Lovelace (#12, #13)
+```
+
+A proposal that is turned down is rejected instead, and a reason is required. Say a second proposal, `decider propose "Use Redis"`, is turned down:
+
+```bash
+decider reject 2 --reason "Too much to run."
+```
+
+A move that does not fit the state is refused and the file is left alone. For example, `decider implement 1` on an ADR that is still proposed says ``the ADR is proposed, and `implement` needs it to be accepted``.
+
 ## What next
 
-Proposing, accepting and implementing an ADR arrive in the next versions. The command details are in the [command reference](../reference/commands.md).
+A check for CI that fails while any decision is still open comes next. The command details are in the [command reference](../reference/commands.md).

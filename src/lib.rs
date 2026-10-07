@@ -5,5 +5,7 @@
 
 pub mod error;
 pub mod files;
+pub mod lifecycle;
 pub mod store;
+mod text;
 pub mod user;

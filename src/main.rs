@@ -6,7 +6,8 @@ use std::path::Path;
 use anyhow::Context;
 use clap::{Parser, Subcommand};
 use decider_adr::files::{self, FilesStore};
-use decider_adr::store::WritesAdrs;
+use decider_adr::lifecycle::Move;
+use decider_adr::store::{Change, WritesAdrs};
 use decider_adr::user;
 
 #[derive(Debug, Subcommand)]
@@ -25,6 +26,35 @@ enum Command {
         /// only what was given.
         #[arg(long)]
         force: bool,
+    },
+    /// Propose a new ADR: create it in the `proposed` state.
+    Propose {
+        /// The title, such as "Use Postgres".
+        title: String,
+    },
+    /// Accept a proposed ADR.
+    Accept {
+        /// The ADR number, such as 7 or 0007.
+        number: u32,
+    },
+    /// Reject a proposed ADR. A reason is required.
+    Reject {
+        /// The ADR number, such as 7 or 0007.
+        number: u32,
+        /// Why it is rejected. Asked for at a terminal if not given.
+        #[arg(long, value_name = "TEXT")]
+        reason: Option<String>,
+    },
+    /// Mark an accepted ADR as implemented.
+    Implement {
+        /// The ADR number, such as 7 or 0007.
+        number: u32,
+        /// A pull request or commit that implemented it. Can be repeated.
+        #[arg(long = "pr", value_name = "REF")]
+        references: Vec<String>,
+        /// What happened when it was built. Recorded in an `## Outcome` section.
+        #[arg(long, value_name = "TEXT")]
+        note: Option<String>,
     },
 }
 
@@ -176,12 +206,146 @@ fn run_init(cwd: &Path, dir: Option<&str>, name: Option<&str>, force: bool) -> a
     Ok(())
 }
 
+/// Today's date in the local time zone, as `YYYY-MM-DD`.
+fn today() -> String {
+    chrono::Local::now().format("%Y-%m-%d").to_string()
+}
+
+/// The repository root and ADR directory setting, found by looking in the
+/// current directory and then each parent.
+fn find_store(cwd: &Path) -> anyhow::Result<FilesStore> {
+    for directory in cwd.ancestors() {
+        if let Some(dir) = files::settings_dir(directory)? {
+            return Ok(FilesStore::for_init(
+                directory.to_path_buf(),
+                Some(&dir),
+                false,
+            )?);
+        }
+    }
+    anyhow::bail!(
+        "no .decider.toml found in {} or any parent directory; run `decider init` first",
+        cwd.display()
+    )
+}
+
+/// The user's name from their settings, if they have one.
+fn current_name() -> anyhow::Result<Option<String>> {
+    let name = match settings_file() {
+        Some(path) => user::read_name(&path)?,
+        None => None,
+    };
+    Ok(name)
+}
+
+/// Tell the person, once a line has been written, that it has no author.
+fn warn_if_no_name(name: Option<&str>) {
+    if name.is_none() {
+        warn("no name is set, so the line has no author; run `decider init --user NAME`");
+    }
+}
+
+/// The settings file, if there is somewhere to keep one.
+fn settings_file() -> Option<std::path::PathBuf> {
+    user::settings_path(
+        std::env::var_os("XDG_CONFIG_HOME"),
+        std::env::var_os("HOME"),
+    )
+}
+
+/// Open the new ADR at `path` in the user's editor: the `editor` setting, or
+/// `$EDITOR`. It only happens at a terminal, so scripts and CI never wait, and
+/// nothing happens if no editor is set. A failing editor is a warning, because
+/// the ADR has been created.
+fn open_for_editing(path: &Path) -> anyhow::Result<()> {
+    if !can_ask() {
+        return Ok(());
+    }
+    let setting = match settings_file() {
+        Some(file) => user::read_editor(&file)?,
+        None => None,
+    };
+    let environment = std::env::var("EDITOR").ok();
+    let Some(command) = user::editor_command(setting.as_deref(), environment.as_deref()) else {
+        return Ok(());
+    };
+    if let Err(error) = user::open_in_editor(&command, path) {
+        warn(&format!("{error}"));
+    }
+    Ok(())
+}
+
+fn run_propose(cwd: &Path, title: &str) -> anyhow::Result<()> {
+    let mut store = find_store(cwd)?;
+    let name = current_name()?;
+    let place = store.propose(title, &today(), name.as_deref())?;
+    say(&format!("created {}", place.display()));
+    warn_if_no_name(name.as_deref());
+    open_for_editing(&store.root().join(&place))
+}
+
+fn run_change(cwd: &Path, number: u32, change: &Change) -> anyhow::Result<()> {
+    let mut store = find_store(cwd)?;
+    let (place, status) = store.change(number, change)?;
+    say(&format!("{} is now {status}", place.display()));
+    warn_if_no_name(change.by.as_deref());
+    Ok(())
+}
+
 fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
     let cwd = std::env::current_dir().context("could not read the current directory")?;
     match cli.command {
         Command::Init { dir, user, force } => {
             run_init(&cwd, dir.as_deref(), user.as_deref(), force)
+        }
+        Command::Propose { title } => run_propose(&cwd, &title),
+        Command::Accept { number } => {
+            let change = Change {
+                movement: Move::Accept,
+                date: today(),
+                by: current_name()?,
+                references: Vec::new(),
+                text: None,
+            };
+            run_change(&cwd, number, &change)
+        }
+        Command::Reject { number, reason } => {
+            let reason = match reason {
+                Some(text) => text,
+                None if can_ask() => ask("Why is it rejected? ")?,
+                None => anyhow::bail!("a rejection needs a reason; pass --reason TEXT"),
+            };
+            let change = Change {
+                movement: Move::Reject,
+                date: today(),
+                by: current_name()?,
+                references: Vec::new(),
+                text: Some(reason),
+            };
+            run_change(&cwd, number, &change)
+        }
+        Command::Implement {
+            number,
+            references,
+            note,
+        } => {
+            let references = references
+                .iter()
+                .map(|reference| reference.trim().to_owned())
+                .collect::<Vec<_>>();
+            anyhow::ensure!(
+                references.iter().all(|reference| !reference.is_empty()),
+                "--pr must not be empty"
+            );
+            let change = Change {
+                movement: Move::Implement,
+                date: today(),
+                by: current_name()?,
+                references,
+                text: note,
+            };
+            run_change(&cwd, number, &change)
         }
     }
 }

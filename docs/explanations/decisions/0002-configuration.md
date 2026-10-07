@@ -24,9 +24,12 @@ dir = "docs/explanations/decisions"
 
 ```toml
 name = "Youcef Kadri"
+editor = "code --wait"
 ```
 
 `name` is written after `by` on the stage lines the tool creates. It is trimmed, and a name with a line break is refused, because it would split the header.
+
+`editor` is the command that opens a new ADR for editing (ADR 0004). It is optional, and when it is missing or blank the `EDITOR` environment variable is used. The value is split on whitespace into a program and its arguments, so `code --wait` works, and the file is added as the last argument. It is not run through a shell, so quoting does not apply. `init` does not set it: it is written by hand in the file, until a `config` command exists (issue #9).
 
 `decider init [--dir PATH] [--user NAME] [--force]` sets both up, and every value can be passed as an option so that CI can run it with no terminal as its first step:
 

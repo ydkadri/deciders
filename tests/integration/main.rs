@@ -2,3 +2,4 @@
 
 mod cli;
 mod init;
+mod lifecycle;
